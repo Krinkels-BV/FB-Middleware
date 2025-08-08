@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Functioneel Beheer – Chat</title>
+  <style>
+    body { font: 16px/1.45 system-ui, sans-serif; margin: 0; padding: 1rem; }
+    .wrap { max-width: 760px; margin: 0 auto; }
+    .msg { padding: .75rem 1rem; border-radius: 10px; margin: .5rem 0; white-space: pre-wrap; }
+    .user { background: #eef5ff; }
+    .bot { background: #f4f4f4; }
+    form { display: flex; gap: .5rem; margin-top: .75rem; }
+    textarea { flex: 1; min-height: 72px; }
+    button { padding: .75rem 1rem; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Functioneel Beheer – Chat</h1>
+    <div id="chat" aria-live="polite"></div>
+    <form id="f">
+      <textarea id="t" placeholder="Typ je vraag…"></textarea>
+      <button type="submit">Versturen</button>
+    </form>
+  </div>
+
+  <script>
+    // <-- Hier staat jouw Worker-URL -->
+    const API_URL = 'https://lively-heart-c781.wdversteeden.workers.dev';
+
+    const chat = document.getElementById('chat');
+    const form = document.getElementById('f');
+    const t = document.getElementById('t');
+
+    function add(role, text) {
+      const div = document.createElement('div');
+      div.className = `msg ${role}`;
+      div.textContent = text;
+      chat.appendChild(div);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const q = t.value.trim();
+      if (!q) return;
+      t.value = '';
+      add('user', q);
+      add('bot', '…');
+      try {
+        const r = await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: q })
+        });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const data = await r.json();
+        chat.lastChild.textContent = data.reply || '(geen antwoord)';
+      } catch (err) {
+        chat.lastChild.textContent = 'Fout: ' + (err.message || err);
+      }
+    });
+  </script>
+</body>
+</html>
