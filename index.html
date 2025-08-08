@@ -4,34 +4,47 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Functioneel Beheer – Chat</title>
+  <meta http-equiv="Cache-Control" content="no-store" />
   <style>
     body { font: 16px/1.45 system-ui, sans-serif; margin: 0; padding: 1rem; }
     .wrap { max-width: 760px; margin: 0 auto; }
     .msg { padding: .75rem 1rem; border-radius: 10px; margin: .5rem 0; white-space: pre-wrap; }
     .user { background: #eef5ff; }
     .bot { background: #f4f4f4; }
+    .error { color:#a40000; font-weight:600; }
     form { display: flex; gap: .5rem; margin-top: .75rem; }
     textarea { flex: 1; min-height: 72px; }
     button { padding: .75rem 1rem; }
+    .meta { font-size:.85rem; opacity:.75; margin-top:.75rem; }
+    code { background:#f5f5f5; padding:2px 4px; border-radius:4px; }
   </style>
 </head>
 <body>
   <div class="wrap">
     <h1>Functioneel Beheer – Chat</h1>
+
     <div id="chat" aria-live="polite"></div>
+
     <form id="f">
       <textarea id="t" placeholder="Typ je vraag…"></textarea>
       <button type="submit">Versturen</button>
     </form>
+
+    <div class="meta">
+      Endpoint: <code id="ep"></code> — Origin: <code id="org"></code>
+    </div>
   </div>
 
   <script>
-    // <-- Hier staat jouw Worker-URL -->
+    // >>> VUL HIER JE WORKER-URL IN (exact zoals in Cloudflare) <<<
     const API_URL = 'https://lively-heart-c781.wdversteeden.workers.dev';
 
+    // UI refs
     const chat = document.getElementById('chat');
     const form = document.getElementById('f');
     const t = document.getElementById('t');
+    document.getElementById('ep').textContent = API_URL;
+    document.getElementById('org').textContent = window.location.origin;
 
     function add(role, text) {
       const div = document.createElement('div');
@@ -41,25 +54,37 @@
       chat.scrollTop = chat.scrollHeight;
     }
 
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const q = t.value.trim();
-      if (!q) return;
-      t.value = '';
+    async function ask(q) {
       add('user', q);
       add('bot', '…');
+      console.log('[fb-ui] POST', API_URL, {message:q});
       try {
         const r = await fetch(API_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ message: q })
         });
-        if (!r.ok) throw new Error('HTTP ' + r.status);
+        console.log('[fb-ui] status', r.status, r.statusText);
+        if (!r.ok) {
+          const msg = await r.text().catch(()=> '');
+          throw new Error(`HTTP ${r.status}${msg ? ' – ' + msg : ''}`);
+        }
         const data = await r.json();
+        chat.lastChild.classList.remove('error');
         chat.lastChild.textContent = data.reply || '(geen antwoord)';
       } catch (err) {
+        console.error('[fb-ui] error', err);
+        chat.lastChild.classList.add('error');
         chat.lastChild.textContent = 'Fout: ' + (err.message || err);
       }
+    }
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const q = t.value.trim();
+      if (!q) return;
+      t.value = '';
+      ask(q);
     });
   </script>
 </body>
